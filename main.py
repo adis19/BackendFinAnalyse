@@ -37,7 +37,7 @@ async def root():
 async def get_reports(
     start_date: date = Query(..., description="Start date for report search (YYYY-MM-DD)"),
     end_date: date = Query(None, description="End date for report search (YYYY-MM-DD)"),
-    bank_id: int = Query(None, description="Bank ID (1=KICB, 2=Optima, 3=DemirBank, 4=MBank, None=All banks)"),
+    bank_id: int = Query(None, description="Bank ID (1=KICB, 2=Optima, 3=DemirBank, 4=MBank, 5=RSK, None=All banks)"),
     report_type: ServiceReportType = Query(ServiceReportType.ALL, description="Type of reports to return (monthly, quarterly, or all)")
 ):
     """

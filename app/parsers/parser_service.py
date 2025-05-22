@@ -7,6 +7,7 @@ from app.parsers.bank_kicb import KICBParser
 from app.parsers.bank_optima import OptimaParser
 from app.parsers.bank_demirbank import DemirbankParser
 from app.parsers.bank_mbank import MBankParser
+from app.parsers.bank_rsk import RSKParser
 
 # Определяем тип отчетов для API
 class ServiceReportType(str, Enum):
@@ -26,7 +27,7 @@ async def get_bank_reports(
     Args:
         start_date: Starting date for report search
         end_date: Ending date for report search (defaults to start_date if not provided)
-        bank_id: ID of the bank to search (1=KICB, 2=Optima, 3=Demirbank, 4=MBank, None=All banks)
+        bank_id: ID of the bank to search (1=KICB, 2=Optima, 3=Demirbank, 4=MBank, 5=RSK, None=All banks)
         report_type: Type of reports to return (monthly, quarterly, or all)
     
     Returns:
@@ -50,6 +51,9 @@ async def get_bank_reports(
     
     if bank_id is None or bank_id == 4:
         parsers.append(MBankParser())
+    
+    if bank_id is None or bank_id == 5:
+        parsers.append(RSKParser())
     
     all_reports = []
     
