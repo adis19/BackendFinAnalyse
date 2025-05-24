@@ -4,6 +4,7 @@ from datetime import date, datetime
 import uvicorn
 from pydantic import BaseModel
 from enum import Enum
+from typing import List, Optional
 
 from app.parsers.parser_service import get_bank_reports, ServiceReportType
 from app.parsers.gemini_analyzer import analyze_bank_reports
@@ -39,14 +40,22 @@ async def root():
 async def get_reports(
     start_date: date = Query(..., description="Start date for report search (YYYY-MM-DD)"),
     end_date: date = Query(None, description="End date for report search (YYYY-MM-DD)"),
-    bank_id: int = Query(None, description="Bank ID (1=KICB, 2=Optima, 3=DemirBank, 4=MBank, 5=RSK, None=All banks)"),
+    bank_ids: Optional[str] = Query(None, description="Bank IDs separated by commas (1=KICB, 2=Optima, 3=DemirBank, 4=MBank, 5=RSK, None=All banks). Example: 1,3,5"),
     report_type: ServiceReportType = Query(ServiceReportType.ALL, description="Type of reports to return (monthly, quarterly, or all)")
 ):
     """
     Get bank financial reports between specified dates.
     """
     try:
-        reports = await get_bank_reports(start_date, end_date, bank_id, report_type)
+        # Parse bank_ids from comma-separated string to list of integers
+        parsed_bank_ids = None
+        if bank_ids:
+            try:
+                parsed_bank_ids = [int(id.strip()) for id in bank_ids.split(",")]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid bank_ids format. Must be comma-separated integers.")
+            
+        reports = await get_bank_reports(start_date, end_date, parsed_bank_ids, report_type)
         return reports
     except Exception as e:
         # Добавляем обработку ошибок
@@ -56,7 +65,7 @@ async def get_reports(
 async def analyze_reports(
     start_date: date = Query(..., description="Start date for report search (YYYY-MM-DD)"),
     end_date: date = Query(None, description="End date for report search (YYYY-MM-DD)"),
-    bank_id: int = Query(None, description="Bank ID (1=KICB, 2=Optima, 3=DemirBank, 4=MBank, 5=RSK, None=All banks)"),
+    bank_ids: Optional[str] = Query(None, description="Bank IDs separated by commas (1=KICB, 2=Optima, 3=DemirBank, 4=MBank, 5=RSK, None=All banks). Example: 1,3,5"),
     report_type: ServiceReportType = Query(ServiceReportType.ALL, description="Type of reports to return (monthly, quarterly, or all)")
 ):
     """
@@ -67,8 +76,16 @@ async def analyze_reports(
     If multiple banks are selected, returns analysis for each bank and comparative analysis.
     """
     try:
+        # Parse bank_ids from comma-separated string to list of integers
+        parsed_bank_ids = None
+        if bank_ids:
+            try:
+                parsed_bank_ids = [int(id.strip()) for id in bank_ids.split(",")]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid bank_ids format. Must be comma-separated integers.")
+                
         # Получение отчетов, как в эндпоинте /reports
-        reports = await get_bank_reports(start_date, end_date, bank_id, report_type)
+        reports = await get_bank_reports(start_date, end_date, parsed_bank_ids, report_type)
         
         # Если отчетов нет - вернем пустой результат
         if not reports:
