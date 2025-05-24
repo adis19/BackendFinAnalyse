@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional
 from .pdf_downloader import download_pdf, cleanup_pdf
 import os
 import time
+import tempfile
 
 # Конфигурация Google Gemini API
 GOOGLE_API_KEY = 'AIzaSyDvsUFB83k9nq5vOdDPEb4-8iOfAtfvWu0'
@@ -487,6 +488,72 @@ async def analyze_report_from_url(report_url: str, bank_name: str, is_json_outpu
         print(f"Ошибка при анализе отчета для банка {bank_name}: {str(e)}")
         return {"error": f"Произошла ошибка: {str(e)}"}
 
+async def analyze_report_from_bytes(pdf_bytes: bytes, bank_name: str = "Unknown Bank", is_json_output: bool = True) -> Dict[str, Any]:
+    """
+    Анализирует PDF отчет из байтов с помощью Gemini
+    
+    Args:
+        pdf_bytes: Байты PDF файла
+        bank_name: Название банка для логирования
+        is_json_output: Флаг для возврата результата в формате JSON
+        
+    Returns:
+        Словарь с результатами анализа
+    """
+    try:
+        # Инициализация API при вызове функции
+        init_gemini_api()
+        
+        # Создаем временный файл для PDF
+        temp_dir = tempfile.gettempdir()
+        temp_path = os.path.join(temp_dir, f"report_{os.urandom(8).hex()}.pdf")
+        
+        try:
+            # Сохраняем байты во временный файл
+            with open(temp_path, 'wb') as f:
+                f.write(pdf_bytes)
+            
+            print(f"Загрузка файла: {temp_path}...")
+            
+            # Выбор модели Gemini
+            model = genai.GenerativeModel('gemini-2.0-flash')
+
+            # Создание контента для запроса: файл + промпт
+            prompt_text = ANALYSIS_PROMPT if is_json_output else ANALYSIS_PROMPT.replace("формате JSON", "формате MARKDOWN")
+            
+            # Читаем файл как бинарные данные
+            with open(temp_path, 'rb') as f:
+                file_data = f.read()
+            
+            # Создаем запрос с бинарными данными
+            request_content = [
+                {"mime_type": "application/pdf", "data": file_data},
+                prompt_text
+            ]
+
+            print(f'Отправка запроса в Gemini API банк "{bank_name}"')
+            # Отправка запроса
+            response = model.generate_content(request_content)
+
+            if is_json_output:
+                # Преобразуем текстовый ответ в JSON
+                result = extract_json_from_response(response.text)
+                print(f"Получен ответ от Gemini API для банка {bank_name}")
+            else:
+                result = {"markdown": response.text}
+                print(f"Получен markdown-ответ от Gemini API для банка {bank_name}")
+            
+            return result
+            
+        finally:
+            # Удаляем временный файл
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+                print(f"Удален временный файл {temp_path}")
+        
+    except Exception as e:
+        print(f"Ошибка при анализе отчета для банка {bank_name}: {str(e)}")
+        return {"error": f"Произошла ошибка: {str(e)}"}
 
 async def compare_bank_analyses(bank_analyses: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
